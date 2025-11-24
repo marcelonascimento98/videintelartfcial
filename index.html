@@ -372,50 +372,34 @@
     </div>
 
     <script>
-        // typing effect: transforma o texto da .logo em spans e aplica reveal letra a letra
+        /* -------------------------------------------------------------
+                   ANIMAÇÃO DA VINHETA (mantido)
+                ------------------------------------------------------------- */
         (function() {
             const logo = document.querySelector('#vinheta .logo');
             if (!logo) return;
 
-            // captura texto original e limpa
             const text = logo.textContent.trim();
             logo.textContent = '';
 
-            // divide em caracteres seguros (spread geralmente ok para acentos simples)
-            // para clusters complexos você poderia usar Intl.Segmenter (não necessário aqui)
             const chars = [...text];
-
-            // cria spans
-            chars.forEach((ch, i) => {
+            chars.forEach(ch => {
                 const span = document.createElement('span');
                 span.className = 'char';
-                // preservar espaços visuais (não colapsar)
-                if (ch === ' ') {
-                    span.innerHTML = '&nbsp;';
-                } else {
-                    span.textContent = ch;
-                }
+                span.innerHTML = ch === ' ' ? '&nbsp;' : ch;
                 logo.appendChild(span);
             });
 
-            // animação: revele cada span da esquerda para direita
             const spans = Array.from(logo.querySelectorAll('.char'));
-            const baseDelay = 60; // ms entre caracteres
-            const initialDelay = 120; // espera antes de começar (ms)
-
-            spans.forEach((s, idx) => {
-                const delay = initialDelay + idx * baseDelay;
-                setTimeout(() => {
-                    s.classList.add('in');
-                }, delay);
+            spans.forEach((s, i) => {
+                setTimeout(() => s.classList.add('in'), 120 + i * 60);
             });
-
-            // opcional: se quiser garantir que a vinheta só suma após a digitação terminar,
-            // podemos ajustar o tempo de remoção. Como no seu script original a vinheta some
-            // depois de 3000ms, vamos manter isso, mas você pode aumentar se quiser.
         })();
 
-        /* seu script de playlist e vinheta (mantive comportamento original de remover vinheta após 3s) */
+
+        /* -------------------------------------------------------------
+           PLAYLIST (você pode adicionar mais vídeos)
+        ------------------------------------------------------------- */
         const playlist = [
             "https://cdn.pixabay.com/video/2025/10/28/312525_large.mp4",
             "https://cdn.pixabay.com/video/2025/11/11/315117_large.mp4",
@@ -426,61 +410,100 @@
             "https://cdn.pixabay.com/video/2023/08/07/174952-852215381_large.mp4",
             "https://cdn.pixabay.com/video/2025/09/13/303785_large.mp4",
             "https://cdn.pixabay.com/video/2024/12/04/244908_large.mp4",
-
         ];
 
+
+        /* -------------------------------------------------------------
+           RETORNA DIA DO ANO (1 a 365)
+        ------------------------------------------------------------- */
         function dayOfYear(d = new Date()) {
             const start = new Date(d.getFullYear(), 0, 0);
-            return Math.floor((d - start) / (1000 * 60 * 60 * 24));
+            return Math.floor((d - start) / 86400000);
         }
 
-        function loadDailyItem() {
+
+        /* -------------------------------------------------------------
+           SELECIONA 3 VÍDEOS POR DIA
+        ------------------------------------------------------------- */
+        function getDailyVideos() {
             const dia = dayOfYear();
-            const idx = playlist.length ? (dia % playlist.length) : 0;
-            const fonte = playlist[idx];
+            const baseIndex = dia % playlist.length;
 
+            return [
+                playlist[baseIndex],
+                playlist[(baseIndex + 1) % playlist.length],
+                playlist[(baseIndex + 2) % playlist.length]
+            ];
+        }
+
+        let todayVideos = getDailyVideos();
+        let currentVideoIndex = 0;
+
+
+        /* -------------------------------------------------------------
+           TROCA DE VÍDEO
+        ------------------------------------------------------------- */
+        function isMp4(url) {
+            return /\.mp4(\?.*)?$/i.test(url);
+        }
+
+        function loadVideo(url) {
             const player = document.getElementById('v');
-            // limpa fontes anteriores
-            player.innerHTML = '';
+            const wrap = document.querySelector('.media-wrap');
 
-            const existingImg = document.querySelector('.media-wrap img.fallback');
+            // Limpa fontes anteriores
+            player.innerHTML = "";
+            const existingImg = wrap.querySelector("img.fallback");
             if (existingImg) existingImg.remove();
 
-            function isMp4(url) {
-                return /\.mp4(\?.*)?$/i.test(url);
-            }
-
-            if (isMp4(fonte)) {
-                const src = document.createElement('source');
-                src.src = fonte;
+            if (isMp4(url)) {
+                const src = document.createElement("source");
+                src.src = url;
                 src.type = "video/mp4";
+                player.style.display = "";
                 player.appendChild(src);
 
-                // garante que o vídeo esteja visível
-                player.style.display = '';
-                player.play().catch(err => console.warn("Falha no autoplay:", err));
+                player.load();
+                player.play().catch(err => console.warn("Autoplay bloqueado:", err));
             } else {
                 player.style.display = "none";
                 const img = document.createElement("img");
                 img.className = "fallback";
-                img.src = fonte;
-                document.querySelector('.media-wrap').appendChild(img);
+                img.src = url;
+                wrap.appendChild(img);
             }
         }
 
-        // CARREGA O VÍDEO NORMALMENTE ao carregar a página
-        window.addEventListener("load", () => {
-            loadDailyItem();
+        /* troca para o próximo dos 3 vídeos */
+        function swapToNext() {
+            currentVideoIndex = (currentVideoIndex + 1) % 3;
+            loadVideo(todayVideos[currentVideoIndex]);
+        }
 
-            // VINHETA: usa comportamento de saída (remove depois de 3s + 1s)
+
+        /* -------------------------------------------------------------
+           INÍCIO DA PÁGINA
+        ------------------------------------------------------------- */
+        window.addEventListener("load", () => {
+
+            // Carrega o primeiro vídeo do dia
+            loadVideo(todayVideos[0]);
+
+            // VINHETA SOME APÓS 3s
             const v = document.getElementById('vinheta');
             setTimeout(() => {
                 v.classList.add('vinhetaOut');
-                setTimeout(() => v.remove(), 1000); // remove da tela após animação
+                setTimeout(() => v.remove(), 1000);
             }, 3000);
+
+            // Troca de vídeo a cada 5 minutos
+            setInterval(swapToNext, 5 * 60 * 1000);
         });
 
-        // Parallax sutil ao mover o mouse (mantido)
+
+        /* -------------------------------------------------------------
+           PARALLAX (mantido)
+        ------------------------------------------------------------- */
         const media = document.querySelector('.media-wrap');
         document.addEventListener('mousemove', (e) => {
             const w = window.innerWidth,
@@ -491,6 +514,7 @@
         });
         document.addEventListener('mouseleave', () => media.style.transform = '');
     </script>
+
 </body>
 
 </html>
